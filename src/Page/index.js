@@ -1,24 +1,22 @@
-//import { JSDOM, ResourceLoader, CookieJar } from "jsdom";
-import { JSDOM, ResourceLoader, CookieJar } from "../../custom-jsdom/lib/api.js";
+import { CookieJar } from "tough-cookie";
+import { DOM } from "../DOM/index.js";
 
-import { existsSync } from "fs";
-import {default as puppeteer} from "puppeteer-extra"
-import { Script, runInContext } from "vm";
+import { VM, VMScript } from "vm2";
 import { Cookie } from "tough-cookie";
 import { HTTPRequest } from "../Networking/index.js";
 
 class Page {
+  #history = [];
+
   #vm;
   #dom;
   #window;
-  #console;
   #cookieJar;
-  #resourceLoader;
 
   #url;
   #browser;
 
-  #eventLoop = [
+  #events = [
     {
       name: "request",
       default: true,
@@ -28,44 +26,44 @@ class Page {
     },
   ];
 
-  setRequestInterception() {}
+  setRequestInterception() { }
 
-  setViewport(viewport) {}
+  setViewport(viewport) { }
 
   screenshot(options) {
     return new Promise((resolve, reject) => {
-        if(!(this.#browser.options.executablePath && existsSync(this.#browser.options.executablePath)))
-          throw new Error("You need to provide executablePath at launch for the ability to screenshot")
-        
-        puppeteer.launch({
-          headless: "new",
-          executablePath: this.#browser.options.executablePath
-        }).then(async (browser) => {
-          try {
-            function cancel(err) {throw new Error(err)}
+      /*if(!(this.#browser.options.executablePath && existsSync(this.#browser.options.executablePath)))
+        throw new Error("You need to provide executablePath at launch for the ability to screenshot")
+      
+      puppeteer.launch({
+        headless: "new",
+        executablePath: this.#browser.options.executablePath
+      }).then(async (browser) => {
+        try {
+          function cancel(err) {throw new Error(err)}
 
-            let page = await browser.newPage().catch(cancel)
-            await page.setJavaScriptEnabled(false).catch(cancel)
-            await page.setContent(this.#dom.serialize()).catch(cancel)
+          let page = await browser.newPage().catch(cancel)
+          await page.setJavaScriptEnabled(false).catch(cancel)
+          await page.setContent(this.#dom.serialize()).catch(cancel)
 
-            resolve(await page.screenshot(options).catch(cancel))
+          resolve(await page.screenshot(options).catch(cancel))
 
-            await browser.close().catch(cancel)
-          } catch (err) {
-            reject(err)
-          }
-        })
+          await browser.close().catch(cancel)
+        } catch (err) {
+          reject(err)
+        }
+      })*/
     })
   }
 
-  type(selector, text) {}
+  type(selector, text) { }
 
-  waitForSelector(selector, options) {}
+  waitForSelector(selector, options) { }
 
   click(selector) {
     return new Promise((resolve, reject) => {
       let element = this.$(selector)
-      if(!element) reject(new Error("Element with this selector doesn't exist"))
+      if (!element) reject(new Error("Element with this selector doesn't exist"))
 
       try {
         var evt = this.#window.document.createEvent("HTMLEvents");
@@ -73,7 +71,7 @@ class Page {
 
         element.dispatchEvent(evt)
         resolve()
-      } catch(err) {
+      } catch (err) {
         reject(new Error(`Unable to click. Error: ${err}`))
       }
     })
@@ -86,7 +84,7 @@ class Page {
   evaluate(func) {
     if (typeof func !== "function")
       throw new Error("AXYUM only supports evaluating function");
-    
+
     return runInContext(`(${func})()`, this.#vm)
   }
 
@@ -94,9 +92,9 @@ class Page {
     return this.#window.document.querySelector(selector)
   }
 
-  $$(selector) {}
+  $$(selector) { }
 
-  $x(Xpath) {}
+  $x(Xpath) { }
 
   setCookies(cookies) {
     let list = [];
@@ -136,7 +134,7 @@ class Page {
     let oldCookies = [];
 
     if (this.#cookieJar) {
-      //oldCookies = await this.getCookies()
+      oldCookies = await this.getCookies(url)
     }
 
     this.#url = url;
@@ -144,6 +142,23 @@ class Page {
     this.setCookies(oldCookies);
 
     return new Promise((resolve, reject) => {
+      this.#dom?.kill()
+
+      const dom = new DOM({
+        url: url,
+        history: this.#history,
+        cookieJar: this.#cookieJar,
+        page: this
+      });
+
+      this.#dom = dom
+      this.#history.push(url);
+
+      dom.navigate(url, this.#history)
+        .then(resolve)
+        .catch(reject)
+
+      /*
       let newRequest = new HTTPRequest(
         url,
         this,
@@ -152,9 +167,9 @@ class Page {
         "GET",
         null,
         this.#browser.proxy || "",
-        {
+        { // switch headers in the future
           accept:
-            "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+            "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng;q=0.8,application/signed-exchange;v=b3;q=0.7",
           "accept-encoding": "gzip, deflate, br",
           "accept-language": "ro-RO,ro;q=0.9,en-US;q=0.8,en;q=0.7,he;q=0.6",
           "user-agent":
@@ -162,88 +177,16 @@ class Page {
           "upgrade-insecure-requests": "1",
         },
         (result) => {
-          if (result.status.toString()[0] !== "2") {
+          console.log(result)
+          if (result.status < 200 || result.status > 299) {
             reject(new Error("Server send non 2xx status code"))
           } else {
-            class CustomResourceLoader extends ResourceLoader {
-              constructor(options, window) {
-                console.log(options);
-                super(options);
-              }
 
-              fetch(rURL, options) {
-                return new Promise((resolve, reject) => {
-                  let request = new HTTPRequest(
-                    rURL,
-                    this,
-                    false,
-                    "document",
-                    "GET",
-                    null,
-                    this.#browser.proxy || "",
-                    {
-                      accept:
-                        "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-                      "accept-encoding": "gzip, deflate, br",
-                      "accept-language":
-                        "ro-RO,ro;q=0.9,en-US;q=0.8,en;q=0.7,he;q=0.6",
-                      "user-agent":
-                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36",
-                      "upgrade-insecure-requests": "1",
-                    },
-                    (result) => {
-                      if (result.status.toString()[0] !== "2") {
-                        resolve(`ERROR ${result.status}`);
-                      } else {
-                        resolve(result.body);
-                      }
-                    }
-                  );
-
-                  this.emit("request", request);
-                });
-              }
-            }
-
-            const dom = new JSDOM(result.body, {
-              url: url,
-              referrer: oldUrl || url,
-              contentType: "text/html",
-              //includeNodeLocations: true,
-              storageQuota: 5000000,
-              runScripts: "dangerously",
-              cookieJar: this.#cookieJar,
-              pretendToBeVisual: true,
-              //resources: new CustomResourceLoader()
-              beforeParse(window) {},
-            });
-
-            this.#vm = dom.getInternalVMContext();
-            this.#dom = dom;
-            this.#window = dom.window;
-
-            dom.virtualConsole.on("jsdomError", (text) =>
-              this.emit("console", { type: () => "error", text: () => text })
-            );
-            dom.virtualConsole.on("error", (text) =>
-              this.emit("console", { type: () => "error", text: () => text })
-            );
-            dom.virtualConsole.on("warn", (text) =>
-              this.emit("console", { type: () => "warning", text: () => text })
-            );
-            dom.virtualConsole.on("info", (text) =>
-              this.emit("console", { type: () => "info", text: () => text })
-            );
-            dom.virtualConsole.on("dir", (text) =>
-              this.emit("console", { type: () => "info", text: () => text })
-            );
-
-            resolve();
           }
         }
       );
 
-      this.emit("request", newRequest);
+      this.emit("request", newRequest);*/
     });
   }
 
@@ -256,16 +199,16 @@ class Page {
   }
 
   on(name, func) {
-    this.#eventLoop = this.#eventLoop.filter(
+    this.#events = this.#events.filter(
       (v) => !(v.default && name == v.name)
     );
-    this.#eventLoop.push({ name, func });
+    this.#events.push({ name, func });
   }
 
   emit() {
     let args = [...arguments];
     let name = args.shift();
-    let possibleEvents = this.#eventLoop.filter((e) => e.name == name);
+    let possibleEvents = this.#events.filter((e) => e.name == name);
     for (let event of possibleEvents) {
       event.func(...args);
     }

@@ -52,14 +52,17 @@ class HTTPRequest {
             }
 
             if (this.#url.startsWith("chrome://")) {
-
+                return this.#onFinished({
+                    status: 501 ,
+                    headers: {},
+                    body: Buffer.from("Not implemented!"), // not implemented
+                });
             }
 
             return this.abort("request is not http or https");
         }
 
         try {
-
             let cookieHandler = new CookieHandler(this.#url, this.#page)
 
             const options = {

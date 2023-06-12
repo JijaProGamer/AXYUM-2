@@ -14,7 +14,11 @@ launch({
             request.continue();
     });*/
 
-    await page.goto("https://www.youtube.com/watch?v=oR-mzzIsHVE", { waitUntil: "networkidle0" })
+    page.on("console", (message) => console.log(`${message.type()}: ${message.text()}`))
+
+    //await page.goto("https://www.youtube.com/watch?v=Zktrwiknq64", { waitUntil: "networkidle0" })
+    await page.goto("https://www.bloxxy.net", { waitUntil: "networkidle0" })
+
     await sleep(1000)
 
     await page.screenshot({path: "e.png", fullPage: true})

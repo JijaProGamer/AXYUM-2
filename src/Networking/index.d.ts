@@ -5,7 +5,7 @@ export class HTTPResponse {
 }
 
 export class HTTPRequest {
-    constructor (url: string, page: any, isNavigation: boolean, resourceType: string, method: string, postData: string | null, proxy: string, headers: any, onFinished: function) {}
+    constructor (url: string, page: any, isNavigation: boolean, resourceType: string, method: string, postData: string | null, proxy: string, headers: any, onFinished: Function) 
 
     abort(errorCode: string, priority: number): null
 
