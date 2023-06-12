@@ -67,14 +67,12 @@ class DOM {
                 "Upgrade-Insecure-Requests": "1",
             }
 
-            if(opts.headers){
-                headers = {...headers, ...opts.headers}
+            if(new URL(opts.url).origin == new URL(this.url).origin){
+                headers["Origin"] = new URL(this.url).origin
             }
 
-            if(opts.isNavigation){
-                headers["Sec-Fetch-Dest"] = "document"
-                headers["Sec-Fetch-Mode"] = "navigate"
-                headers["Sec-Fetch-Site"] = "cross-site"
+            if(opts.headers){
+                headers = {...headers, ...opts.headers}
             }
 
             if(opts.referer){
@@ -118,10 +116,16 @@ class DOM {
             this.makeRequest({
                 referer: referer ? new URL(referer) : null,
                 url,
-                isNavigation: true,
                 resourceType: "document",
                 method: "GET",
-                postData: null
+                postData: null,
+                isNavigation: true,
+                headers: {
+                    "Sec-Fetch-Dest": "document",
+                    "Sec-Fetch-Mode": "navigate",
+                    "Sec-Fetch-Site": "none",
+                    "Sec-Fetch-User": "?1"
+                }
             }
             ).then((result) => {
                 this.document = parse(result.body/*.toString()*/, {
@@ -130,10 +134,9 @@ class DOM {
 
                 this.sandbox.setDocument({
                     document: this.document,
-
                 })
-
-                resolve()
+                .then(resolve)
+                .catch(reject)
             }).catch(reject)
         })
     }
