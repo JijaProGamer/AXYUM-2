@@ -1,3 +1,5 @@
+import { HTMLElement } from "./sandboxClasses/HTMLElement.js";
+
 function getAllChildNodes(node) {
     const nodes = [];
 
@@ -21,9 +23,7 @@ let relations = {
 class Sandbox {
     #vm;
     #DOM;
-    #page;
 
-    #document;
     #resources = {};
     #toDownload = [];
 
@@ -108,7 +108,8 @@ class Sandbox {
                     })
                 }
             }
-
+            
+            this.#vm.freeze(this.#DOM.document, "document")
             await this.downloadAllContent()
 
             for(let [href, result] of Object.entries(this.#resources)){
@@ -129,12 +130,10 @@ class Sandbox {
     constructor(options) {
         this.#vm = options.vm
         this.#DOM = options.DOM
-        this.#page = options.page
 
         let vmSandbox = {
-            window: {},
-            globalThis: {},
             location: {},
+            HTMLElement,
             URL,
             setInterval: (func, time) => {
                 let id = setInterval(() => this.runCode(func), time)
@@ -181,7 +180,7 @@ class Sandbox {
             global = undefined
         })
 
-        //console.log(this.#DOM.runCode(() => console.log(true) ))
+        console.log(this.#DOM.runCode(() => HTMLElement.toString.toString()))
         //this.#DOM.runCode(() => {setInterval(() => console.log("OK!!"), 1000)} )
     }
 }

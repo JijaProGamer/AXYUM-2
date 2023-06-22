@@ -155,7 +155,6 @@ class DOM {
         this.sandbox = new Sandbox({
             vm: this.vm,
             DOM: this,
-            page: this.page,
         })
     }
 }
